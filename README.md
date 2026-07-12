@@ -157,12 +157,30 @@ echo "blacklist mt7921e" | sudo tee /etc/modprobe.d/disable-mt76.conf
 sudo dracut -f --kver $(uname -r)
 ```
 
-### DKMS
+### DKMS (Recommended)
+
+**Why DKMS?** Each kernel upgrade replaces your kernel headers and modules directory. Without DKMS, the `mt7902e` module silently disappears after an update — you'd have to rebuild and reinstall it manually. DKMS **automatically rebuilds** the driver for every new kernel you install.
 
 ```bash
+# 1. Add this driver source to DKMS
 sudo dkms add .
+
+# 2. Build and install for the current kernel
 sudo dkms install mt7902e/git
+
+# 3. The module is now managed by DKMS.
+#    Future kernel updates trigger an automatic rebuild.
+#    You only need to re-run these commands after `git pull`.
 ```
+
+To verify DKMS is tracking the module:
+
+```bash
+sudo dkms status | grep mt7902e
+# Expected: mt7902e/git, ...: installed
+```
+
+> **Note:** After DKMS installation, the Fedora post-install steps (blacklist + dracut) are still required.
 
 ---
 
