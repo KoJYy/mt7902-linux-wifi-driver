@@ -1,0 +1,6 @@
+.remember/
+*.bak*
+*.off
+node_modules/
+*.orig
+*.rej

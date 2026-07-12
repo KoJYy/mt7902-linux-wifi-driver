@@ -1,0 +1,45 @@
+--- a/src/mt7902/pci.c
++++ b/src/mt7902/pci.c
+@@ -35,6 +35,14 @@ static bool mt7921_disable_aspm;
+ module_param_named(disable_aspm, mt7921_disable_aspm, bool, 0644);
+ MODULE_PARM_DESC(disable_aspm, "disable PCI ASPM support");
+
++static bool mt7921_disable_rpm;
++module_param_named(disable_rpm, mt7921_disable_rpm, bool, 0644);
++MODULE_PARM_DESC(disable_rpm, "disable PCI runtime PM (fix latency spikes)");
++
++static int mt7921_rpm_state;
++module_param_named(rpm_state, mt7921_rpm_state, int, 0644);
++MODULE_PARM_DESC(rpm_state, "PCI runtime PM state override: 0=off, 1=auto, 2=on");
++
+ static int mt7921e_init_reset(struct mt792x_dev *dev)
+ {
+ 	return mt792x_wpdma_reset(dev, true);
+@@ -339,6 +347,18 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
+ 	if (mt7921_disable_aspm)
+ 		mt76_pci_disable_aspm(pdev);
+
++	/* Disable PCI runtime PM if requested — prevents D3hot latency spikes */
++	if (mt7921_disable_rpm) {
++		dev_info(&pdev->dev, "disabling PCI runtime PM\n");
++		pci_disable_link_state(pdev, PCIE_LINK_STATE_L1);
++		pm_runtime_dont_use_autosuspend(&pdev->dev);
++		pm_runtime_forbid(&pdev->dev);
++	} else if (mt7921_rpm_state == 1) {
++		pm_runtime_allow(&pdev->dev);
++	} else if (mt7921_rpm_state == 2) {
++		pm_runtime_forbid(&pdev->dev);
++	}
++
+ 	ops = mt792x_get_mac80211_ops(&pdev->dev, &mt7921_ops,
+ 				      (void *)id->driver_data, &features);
+ 	if (!ops) {
+@@ -368,7 +388,7 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
+ 	mt76_mmio_init(&dev->mt76, regs);
+
+ 	if (id->device == 0x7902) {
+-		struct mt792x_irq_map *map;
++		struct mt792x_irq_map *map = NULL;
+
+ 		/* MT7902 needs a mutable copy because wm2_complete_mask differs */
+ 		map = devm_kmemdup(&pdev->dev, &irq_map,
