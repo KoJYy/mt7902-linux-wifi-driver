@@ -1,51 +1,54 @@
 # mt7902-linux-wifi-driver
 
-**Driver Wi-Fi out-of-tree untuk MediaTek MT7902 (Filogic 310) — PCI ID `14c3:7902`**
+**Out-of-tree Linux Wi-Fi driver for MediaTek MT7902 (Filogic 310) — PCI ID `14c3:7902`**
 
-Driver ini adalah *patch overlay* dari [hmtheboy154/mt7902](https://github.com/hmtheboy154/mt7902) (branch `backport`) dengan tambahan **fix PCI Runtime Power Management (RPM)** yang menyebabkan latency spike pada Fedora, Kali Linux, dan distro lain.
-
----
-
-### Masalah
-
-**1. PCI ID tidak dikenal (kernel < 7.1)**
-
-Chip MT7902 (`14c3:7902`) tidak ada di tabel PCI driver `mt7921e` sebelum kernel 7.1-rc1. Kernel tidak bisa mengikat driver ke perangkat — terdeteksi di `lspci` tapi tidak ada modul yang mengklaimnya.
-
-**2. PCI Runtime PM → latency spike 50–300ms**
-
-Bahkan saat driver termuat, mekanisme **PCI Express Runtime PM** (ASPM L1/D3hot) bawaan chip sangat agresif. Setelah idle beberapa detik, PCI link turun ke daya rendah. Saat tiba-tiba ada paket Wi-Fi:
-1. PCI link harus *wake up* dari D3hot ke L0
-2. Firmware MT7902 perlu sinkronisasi ulang
-3. Butuh **50–300ms** — latency parah di SSH, video call, game
+This is a *patch overlay* of [hmtheboy154/mt7902](https://github.com/hmtheboy154/mt7902) (branch `backport`) with a **PCI Runtime Power Management (RPM) fix** that eliminates latency spikes on Fedora, Kali Linux, and other distributions.
 
 ---
 
-### Solusi
+### The Problem
 
-Menambahkan **parameter modul** `disable_rpm` dan `rpm_state`:
+**1. Unrecognized PCI ID (kernel < 7.1)**
+
+The MT7902 chip (`14c3:7902`) is missing from the `mt7921e` driver's PCI device table on kernels prior to 7.1-rc1. The device shows up in `lspci` but no driver claims it.
+
+**2. PCI Runtime PM → 50–300ms latency spikes**
+
+Even when the driver loads, the chip's **PCI Express Runtime PM** (ASPM L1/D3hot) is overly aggressive. After a few seconds of idle traffic, the PCI link drops to a low-power state. When a Wi-Fi packet suddenly needs to be sent:
+
+1. PCI link must wake from D3hot → L0
+2. MT7902 firmware needs to resynchronize
+3. This takes **50–300ms** — noticeable lag in SSH, video calls, gaming; can even drop the connection
+
+---
+
+### The Solution
+
+We add **module parameters** `disable_rpm` and `rpm_state` to the `mt7902e` driver:
 
 ```
-disable_rpm=1  → PCI link tetap L0 (aktif) — tanpa latency spike
-rpm_state=2    → Runtime PM dimatikan paksa
+disable_rpm=1  → Forces PCI link to stay in L0 (active) — zero latency penalty
+rpm_state=2    → Runtime PM forcibly disabled
 ```
 
-Saat aktif, driver panggil:
+When active, the driver calls:
+
 ```c
 pci_disable_link_state(pdev, PCIE_LINK_STATE_L1);
 pm_runtime_dont_use_autosuspend(&pdev->dev);
 pm_runtime_forbid(&pdev->dev);
 ```
 
-Perubahan lain:
-- **Zeroing `wm2_complete_mask`** — mencegah interrupt palsu (MT7902 hanya punya 2 IRQ status register)
+Additional fixes:
+- **Zero `wm2_complete_mask`** on MT7902 — prevents spurious IRQs (this chip has only 2 IRQ status registers, not 3 like the MT7921)
 - **Fix uninitialized pointer** `struct mt792x_irq_map *map = NULL`
 
 ---
 
-### Arsitektur Driver
+### Driver Architecture
 
-4 lapisan:
+4-layer hierarchy inherited from MediaTek's mt76 driver family:
+
 ```
 mac80211 ops (src/mt7902/main.c)
   └─ chip-specific (pci.c, pci_mac.c, pci_mcu.c, init.c, mcu.c)
@@ -53,31 +56,31 @@ mac80211 ops (src/mt7902/main.c)
             └─ mt76 core (src/mmio.c, dma.c, tx.c, mac80211.c)
 ```
 
-Perbedaan hardware MT7902 vs MT7921:
+Hardware differences between MT7902 vs MT7921:
 
-| Aspek | MT7921 | MT7902 |
-|-------|--------|--------|
+| Aspect | MT7921 | MT7902 |
+|--------|--------|--------|
 | MCU-WM TXQ index | 12 | **15** |
-| MCU-WA ring | Ada | **Tidak ada** |
-| RX event ring | 8 entry | **512 entry** |
-| Register IRQ status | 3 | **2** |
-| Perilaku PCI RPM | Stabil | **Agresif → spike** |
+| MCU-WA ring | Present | **Absent** |
+| RX event ring | 8 entries | **512 entries** |
+| IRQ status registers | 3 | **2** |
+| PCI RPM behavior | Stable | **Aggressive → spikes** |
 
 ---
 
-### Kompatibilitas Kernel
+### Kernel Compatibility
 
 | Kernel | Status |
 |--------|--------|
-| ≤ 6.5 | Tidak didukung upstream |
-| 6.6 – 7.0 | **Butuh driver ini** |
-| 7.1-rc1+ | PCI ID ada di `mt7921e`, tapi RPM fix tetap berguna |
+| ≤ 6.5 | Not supported upstream |
+| 6.6 – 7.0 | **Requires this driver** |
+| 7.1-rc1+ | PCI ID present in in-tree `mt7921e`, but RPM fix still beneficial |
 
 ---
 
-### Instalasi
+### Installation
 
-#### Prasyarat
+#### Prerequisites
 
 ```bash
 # Fedora
@@ -117,16 +120,16 @@ sudo dkms install mt7902e/git
 
 ---
 
-### Parameter Modul
+### Module Parameters
 
-| Parameter | Tipe | Default | Deskripsi |
-|-----------|------|---------|-----------|
-| `disable_rpm` | bool | 0 | Matikan PCI runtime PM (hilangkan latency) |
-| `rpm_state` | int | 0 | 0=default, 1=auto, 2=paksa mati |
-| `disable_aspm` | bool | 0 | Matikan PCI ASPM |
-| `disable_clc` | bool | 0 | Matikan CLC |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `disable_rpm` | bool | 0 | Disable PCI runtime PM (eliminates latency) |
+| `rpm_state` | int | 0 | 0=default, 1=allow, 2=force off |
+| `disable_aspm` | bool | 0 | Disable PCI ASPM |
+| `disable_clc` | bool | 0 | Disable CLC (Channel Location Certification) |
 
-Contoh runtime:
+Runtime control:
 ```bash
 sudo modprobe mt7902e disable_rpm=1
 echo 2 | sudo tee /sys/module/mt7902e/parameters/rpm_state
@@ -145,11 +148,11 @@ sudo dracut -f --kver $(uname -r)
 
 ---
 
-### Kredit
+### Credits
 
-- **MediaTek / Sean Wang** — Patch upstream MT7902 + firmware
-- **Lorenzo Bianconi & Felix Fietkau** — Pengelola mt76 framework
-- **hmtheboy154** — Backport tree untuk kernel 6.6+
-- **KoJYy** — Patch PCI runtime PM fix
+- **MediaTek / Sean Wang** — Upstream MT7902 patches + firmware
+- **Lorenzo Bianconi & Felix Fietkau** — mt76 framework maintainers
+- **hmtheboy154** — Backport tree for kernel 6.6+
+- **KoJYy** — PCI runtime PM fix
 
-Driver asli: [hmtheboy154/mt7902](https://github.com/hmtheboy154/mt7902)
+Upstream driver: [hmtheboy154/mt7902](https://github.com/hmtheboy154/mt7902)
