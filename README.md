@@ -5,6 +5,8 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux%20(Fedora%20%7C%20Debian%20%7C%20Arch)-green)](https://github.com/KoJYy/mt7902-linux-wifi-driver)
 [![PCI](https://img.shields.io/badge/PCI-14c3%3A7902-orange)](https://devicehunt.com/view/type/pci/vendor/14C3/device/7902)
 [![WiFi](https://img.shields.io/badge/WiFi-6%20(802.11ax)-informational)](https://en.wikipedia.org/wiki/Wi-Fi_6)
+[![GitHub release](https://img.shields.io/github/v/release/KoJYy/mt7902-linux-wifi-driver)](https://github.com/KoJYy/mt7902-linux-wifi-driver/releases)
+[![CI](https://github.com/KoJYy/mt7902-linux-wifi-driver/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/KoJYy/mt7902-linux-wifi-driver/actions/workflows/c-cpp.yml)
 [![GitHub stars](https://img.shields.io/github/stars/KoJYy/mt7902-linux-wifi-driver?style=social)](https://github.com/KoJYy/mt7902-linux-wifi-driver)
 
 **Out-of-tree Linux Wi-Fi driver for MediaTek MT7902 (Filogic 310) — PCI ID `14c3:7902`**
@@ -45,7 +47,7 @@ iw dev wlp2s0 link
 ping -c 2 8.8.8.8
 ```
 
-> **Fedora users:** see [Fedora post-install](#fedora--post-install) for blacklist steps.
+- **GitHub Actions CI** — automated build verification on every push. Note: CI runs on generic Ubuntu and performs a syntax/source build check only. Runtime testing (module loading, firmware, Wi-Fi association) requires matching kernel headers for your target kernel version.
 
 ---
 
