@@ -1,4 +1,4 @@
-# mt7902-linux-wifi-driver
+# mt7902 linux wifi driver
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](./LICENSE)
 [![Kernel](https://img.shields.io/badge/Kernel-6.6–7.1%2B-blueviolet)](https://kernel.org)
