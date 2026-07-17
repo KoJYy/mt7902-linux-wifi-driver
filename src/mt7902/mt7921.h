@@ -7,6 +7,8 @@
 #include "../mt792x.h"
 #include "regs.h"
 
+extern bool mt7902_disable_fw_ps;
+
 #define MT7921_MAX_AID                  20
 
 #define MT7921_TX_RING_SIZE		2048
