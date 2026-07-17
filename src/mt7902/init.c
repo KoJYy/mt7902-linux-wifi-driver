@@ -10,10 +10,9 @@
 #include "../mt76_connac2_mac.h"
 #include "mcu.h"
 
-bool mt7921_disable_fw_ps;
-EXPORT_SYMBOL_GPL(mt7921_disable_fw_ps);
-module_param_named(disable_fw_ps, mt7921_disable_fw_ps, bool, 0644);
-MODULE_PARM_DESC(disable_fw_ps, "disable firmware power saving (fix latency spikes)");
+bool mt7902_disable_fw_ps;
+module_param_named(disable_fw_ps, mt7902_disable_fw_ps, bool, 0444);
+MODULE_PARM_DESC(disable_fw_ps, "disable firmware power saving (fix latency spikes). Note: read-only after module load; set at modprobe time only");
 
 static ssize_t mt7921_thermal_temp_show(struct device *dev,
 					struct device_attribute *attr,
@@ -265,11 +264,12 @@ static void mt7921_init_work(struct work_struct *work)
 	/* we support chip reset now */
 	dev->hw_init_done = true;
 
-	mt76_connac_mcu_set_deep_sleep(&dev->mt76, dev->pm.ds_enable);
+	{
+		bool ds = mt7902_disable_fw_ps ? false : dev->pm.ds_enable;
 
-	if (mt7921_disable_fw_ps) {
-		dev_info(dev->mt76.dev, "disabling firmware power saving\n");
-		mt76_connac_mcu_set_deep_sleep(&dev->mt76, false);
+		mt76_connac_mcu_set_deep_sleep(&dev->mt76, ds);
+		if (mt7902_disable_fw_ps)
+			dev_info(dev->mt76.dev, "disabling firmware power saving");
 	}
 }
 
@@ -320,7 +320,7 @@ int mt7921_register_device(struct mt792x_dev *dev)
 			dev->pm.ds_enable_user = true;
 			dev->pm.ds_enable = true;
 		}
-		if (mt7921_disable_fw_ps) {
+		if (mt7902_disable_fw_ps) {
 			dev->pm.enable_user = false;
 			dev->pm.enable = false;
 			dev->pm.ds_enable_user = false;

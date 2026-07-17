@@ -9,8 +9,6 @@
 #include "mt7921.h"
 #include "mcu.h"
 
-extern bool mt7921_disable_fw_ps;
-
 static int
 mt7921_init_he_caps(struct mt792x_phy *phy, enum nl80211_band band,
 		    struct ieee80211_sband_iftype_data *data)
@@ -629,8 +627,8 @@ mt7921_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	bool monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
 
 	mt7921_mcu_set_sniffer(dev, vif, monitor);
-	pm->enable = pm->enable_user && !monitor && !mt7921_disable_fw_ps;
-	pm->ds_enable = pm->ds_enable_user && !monitor && !mt7921_disable_fw_ps;
+	pm->enable = pm->enable_user && !monitor && !mt7902_disable_fw_ps;
+	pm->ds_enable = pm->ds_enable_user && !monitor && !mt7902_disable_fw_ps;
 
 	mt76_connac_mcu_set_deep_sleep(&dev->mt76, pm->ds_enable);
 
@@ -644,11 +642,11 @@ void mt7921_set_runtime_pm(struct mt792x_dev *dev)
 	struct mt76_connac_pm *pm = &dev->pm;
 	bool monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
 
-	pm->enable = pm->enable_user && !monitor && !mt7921_disable_fw_ps;
+	pm->enable = pm->enable_user && !monitor && !mt7902_disable_fw_ps;
 	ieee80211_iterate_active_interfaces(hw,
 					    IEEE80211_IFACE_ITER_RESUME_ALL,
 					    mt7921_pm_interface_iter, dev);
-	pm->ds_enable = pm->ds_enable_user && !monitor && !mt7921_disable_fw_ps;
+	pm->ds_enable = pm->ds_enable_user && !monitor && !mt7902_disable_fw_ps;
 	mt76_connac_mcu_set_deep_sleep(&dev->mt76, pm->ds_enable);
 }
 
