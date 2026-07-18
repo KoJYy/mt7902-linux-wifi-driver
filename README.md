@@ -268,7 +268,7 @@ git pull
 # 2. Rebuild and reinstall via DKMS (recommended)
 sudo dkms install mt7902e/git --force
 
-# 3. Or rebuild manually
+# 3. Or rebuild manually (from the repo directory)
 make -j$(nproc)
 sudo make install
 sudo make install_fw
