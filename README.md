@@ -256,6 +256,32 @@ sudo modprobe mt7902e disable_rpm=1 disable_aspm=1
 
 ---
 
+## Updating
+
+When a new version is released, update the driver and rebuild:
+
+```bash
+# 1. Pull the latest source
+cd mt7902-linux-wifi-driver
+git pull
+
+# 2. Rebuild and reinstall via DKMS (recommended)
+sudo dkms install mt7902e/git --force
+
+# 3. Or rebuild manually
+make -j$(nproc)
+sudo make install
+sudo make install_fw
+
+# 4. Reboot or reload
+sudo modprobe -r mt7902e
+sudo modprobe mt7902e disable_rpm=1 disable_fw_ps=1
+```
+
+> **Note:** After a `git pull`, the version string remains `git`, so `--force` is required for DKMS to accept the rebuild.
+
+---
+
 ## Uninstall
 
 ```bash
